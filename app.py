@@ -91,19 +91,14 @@ geolocator = Nominatim(user_agent="mapa_torres_v3")
 geocode = RateLimiter(geolocator.geocode, min_delay_seconds=1)
 
 def obter_coordenadas(endereco):
-    """Obtém coordenadas de um endereço com priorização para o Ceará"""
     try:
-        # Tenta primeiro com contexto de Ceará
-        if "ceara" not in endereco.lower() and "ce" not in endereco.lower():
-            endereco_com_contexto = f"{endereco}, Ceará, Brasil"
-        else:
-            endereco_com_contexto = f"{endereco}, Brasil"
-        
-        location = geocode(endereco_com_contexto)
+        location = geolocator.geocode(endereco, timeout=5)
         if location:
             return location.latitude, location.longitude
-    except:
-        pass
+    except Exception as e:
+        return None, None
+
+    return None, None
     
     # Se não encontrar com contexto, tenta sem
     try:
@@ -237,19 +232,20 @@ with col_limpar:
 # Processar busca
 if busca_button and busca_termo:
     with st.spinner("🔄 Buscando..."):
+
         lat, lng, mensagem = busca_inteligente(busca_termo)
-        
+
         if lat is not None and lng is not None:
-            st.session_state.map_lat = lat
-            st.session_state.map_lon = lng
+            # 🔥 ATUALIZA O MAPA DE VERDADE
+            st.session_state.map_lat = float(lat)
+            st.session_state.map_lon = float(lng)
             st.session_state.map_zoom = 12
+            st.session_state.busca_manual = True
 
-            marker_busca = (lat, lng)
-            msg_busca = mensagem
             st.success(f"✅ {mensagem}")
-        else:
-            st.error(f"❌ Nenhum resultado encontrado para '{busca_termo}'. Tente outro termo.")
 
+        else:
+            st.error("❌ Local não encontrado")
 # Limpar busca
 if limpar_button:
     st.session_state.centro_mapa = [-5.0, -39.0]
