@@ -12,7 +12,19 @@ import io
 # =========================
 URL = "https://docs.google.com/spreadsheets/d/1Oy2N6iGrDHnGSimR6AoNiHtCKUQaqKbQHqMwKM9pX9o/export?format=csv&gid=0"
 
-st.set_page_config(layout="wide", page_title="Mapa de Torres - Monitoramento")
+st.set_page_config(layout="wide", page_title="Mapa de Sites Compromisso - Monitoramento")
+
+# ============================
+#  ESTADO DO MAPA (NÃO RESETAR)
+# ============================
+if "map_lat" not in st.session_state:
+    st.session_state.map_lat = -5.7945  # padrão inicial
+
+if "map_lon" not in st.session_state:
+    st.session_state.map_lon = -38.4526
+
+if "map_zoom" not in st.session_state:
+    st.session_state.map_zoom = 10
 
 # =========================
 # CARREGAR DADOS
@@ -215,9 +227,11 @@ if busca_button and busca_termo:
         lat, lng, mensagem = busca_inteligente(busca_termo)
         
         if lat is not None and lng is not None:
-            centro_mapa = [lat, lng]
+            st.session_state.map_lat = lat
+            st.session_state.map_lon = lng
+            st.session_state.map_zoom = 12
+
             marker_busca = (lat, lng)
-            zoom_level = 10
             msg_busca = mensagem
             st.success(f"✅ {mensagem}")
         else:
@@ -234,6 +248,28 @@ tab_filtros, tab_sem_coord = st.sidebar.tabs(["🔧 Filtros", "⚠️ Sem Coorde
 # ABA 1: FILTROS
 # =========================
 with tab_filtros:
+
+    st.subheader("🔍 Buscar localização")
+
+    col1, col2 = st.columns(2)
+
+    with col1:
+        nova_lat = st.number_input("Latitude", value=st.session_state.map_lat)
+
+    with col2:
+        nova_lon = st.number_input("Longitude", value=st.session_state.map_lon)
+
+    if st.button("📍 Atualizar mapa"):
+        st.session_state.map_lat = nova_lat
+        st.session_state.map_lon = nova_lon
+        st.session_state.map_zoom = 13
+
+    if st.button("🔄 Resetar mapa"):
+    st.session_state.map_lat = -5.7945
+    st.session_state.map_lon = -38.4526
+    st.session_state.map_zoom = 10
+
+
     st.subheader("Filtros Avançados")
     
     df_filtrado = df.copy()
@@ -345,19 +381,21 @@ with tab_sem_coord:
 # =========================
 # 📍 CENTRO DO MAPA
 # =========================
+# Se não houve busca manual, usa média como fallback
 if not marker_busca and col_lat and col_lng:
     coords_validas = df_filtrado[[col_lat, col_lng]].dropna()
 
     if not coords_validas.empty:
-        centro_mapa = [
-            coords_validas[col_lat].mean(),
-            coords_validas[col_lng].mean()
-        ]
+        st.session_state.map_lat = coords_validas[col_lat].mean()
+        st.session_state.map_lon = coords_validas[col_lng].mean()
 
 # =========================
 # 🗺️ CRIAR MAPA
 # =========================
-mapa = folium.Map(location=centro_mapa, zoom_start=zoom_level)
+mapa = folium.Map(
+    location=[st.session_state.map_lat, st.session_state.map_lon],
+    zoom_start=st.session_state.map_zoom
+)
 cluster = MarkerCluster().add_to(mapa)
 
 # Adicionar marcador de busca se houver
