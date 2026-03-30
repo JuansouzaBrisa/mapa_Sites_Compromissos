@@ -1,7 +1,7 @@
+streamlit
 pandas
 numpy
-streamlit
-folium
+folium==0.15.1
 streamlit-folium
 geopy
 openpyxl
