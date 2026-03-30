@@ -202,12 +202,9 @@ for col in df.columns:
 # =========================
 # 🔎 BUSCA GLOBAL
 # =========================
-<<<<<<< HEAD
 busca = st.text_input("🔎 Buscar (Sites, Cidade, Geolocalização)")
-=======
 st.sidebar.markdown("---")
 busca_global = st.sidebar.text_input("🔎 Busca Global", placeholder="Torre, cidade, etc")
->>>>>>> 9bebda84fb40ed68a951dfc0ee8bd02696fd6f1b
 
 if busca_global:
     df_filtrado = df_filtrado[df_filtrado.apply(
