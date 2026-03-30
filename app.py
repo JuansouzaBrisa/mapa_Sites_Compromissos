@@ -1,6 +1,11 @@
 import pandas as pd
 import folium
 import streamlit as st
+
+# 🔥 TESTE DE DEPENDÊNCIAS
+import pkg_resources
+st.write("Dependências carregadas com sucesso")
+
 from streamlit_folium import st_folium
 from folium.plugins import MarkerCluster
 from geopy.geocoders import Nominatim
