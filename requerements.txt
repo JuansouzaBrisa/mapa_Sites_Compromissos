@@ -1,5 +1,6 @@
-streamlit
 pandas
+numpy
+streamlit
 folium
 streamlit-folium
 geopy
