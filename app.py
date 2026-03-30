@@ -61,17 +61,108 @@ if col_lng:
 # =========================
 # GEOCODER
 # =========================
-geolocator = Nominatim(user_agent="mapa_torres_v2")
+geolocator = Nominatim(user_agent="mapa_torres_v3")
 geocode = RateLimiter(geolocator.geocode, min_delay_seconds=1)
 
 def obter_coordenadas(endereco):
+    """Obtém coordenadas de um endereço com priorização para o Ceará"""
+    try:
+        # Tenta primeiro com contexto de Ceará
+        if "ceara" not in endereco.lower() and "ce" not in endereco.lower():
+            endereco_com_contexto = f"{endereco}, Ceará, Brasil"
+        else:
+            endereco_com_contexto = f"{endereco}, Brasil"
+        
+        location = geocode(endereco_com_contexto)
+        if location:
+            return location.latitude, location.longitude
+    except:
+        pass
+    
+    # Se não encontrar com contexto, tenta sem
     try:
         location = geocode(endereco)
         if location:
             return location.latitude, location.longitude
     except:
-        return None, None
+        pass
+    
     return None, None
+
+# =========================
+# FUNÇÕES DE BUSCA INTELIGENTE
+# =========================
+
+def buscar_site_por_nome(termo):
+    """Busca um site pelo SINGLE RAN NAME"""
+    if col_nome is None:
+        return None
+    
+    termo_lower = termo.lower().strip()
+    resultado = df[df[col_nome].astype(str).str.lower().str.contains(termo_lower, na=False)]
+    
+    if not resultado.empty:
+        return resultado.iloc[0]
+    return None
+
+def buscar_por_coordenadas(termo):
+    """Tenta interpretar como coordenadas (lat,lng ou lat lng)"""
+    termo = termo.strip()
+    
+    # Tenta separar por vírgula ou espaço
+    partes = termo.replace(',', ' ').split()
+    
+    if len(partes) == 2:
+        try:
+            lat = float(partes[0])
+            lng = float(partes[1])
+            
+            # Valida se são coordenadas válidas do Brasil
+            if -5 <= lat <= 5 and -45 <= lng <= -35:
+                return lat, lng
+        except ValueError:
+            pass
+    
+    return None, None
+
+def buscar_localizacao_geografica(termo):
+    """Busca uma localização geográfica"""
+    lat, lng = obter_coordenadas(termo)
+    return lat, lng
+
+def busca_inteligente(termo):
+    """
+    Realiza busca inteligente em ordem de prioridade:
+    1. Nome do site (SINGLE RAN NAME)
+    2. Coordenadas diretas
+    3. Localização geográfica
+    """
+    
+    if not termo or not termo.strip():
+        return None, None, None
+    
+    termo = termo.strip()
+    
+    # 1. Tenta buscar por nome de site
+    site = buscar_site_por_nome(termo)
+    if site is not None:
+        lat = site[col_lat] if col_lat and pd.notna(site[col_lat]) else None
+        lng = site[col_lng] if col_lng and pd.notna(site[col_lng]) else None
+        
+        if lat and lng:
+            return float(lat), float(lng), f"Site encontrado: {termo}"
+    
+    # 2. Tenta interpretar como coordenadas
+    lat, lng = buscar_por_coordenadas(termo)
+    if lat and lng:
+        return lat, lng, f"Coordenadas: {lat}, {lng}"
+    
+    # 3. Tenta buscar como localização geográfica
+    lat, lng = buscar_localizacao_geografica(termo)
+    if lat and lng:
+        return lat, lng, f"Localização: {termo}"
+    
+    return None, None, None
 
 # =========================
 # 🎨 HEADER
@@ -98,35 +189,39 @@ col2.metric("✅ Com Coordenadas", com_coord)
 col3.metric("❌ Sem Coordenadas", sem_coord)
 
 # =========================
-# 🔎 BUSCA POR GEOLOCALIZAÇÃO
+# 🔎 BUSCA UNIFICADA INTELIGENTE
 # =========================
-st.subheader("🔍 Busca por Geolocalização")
+st.subheader("🔍 Busca Inteligente Unificada")
 
-col_busca1, col_busca2 = st.columns([3, 1])
+col_busca_input, col_busca_btn = st.columns([4, 1])
 
 centro_mapa = [-5.0, -39.0]  # Centro padrão (Brasil)
 marker_busca = None
 zoom_level = 6
+msg_busca = ""
 
-with col_busca1:
-    busca_localizacao = st.text_input(
-        "Digite um local para centralizar o mapa (ex: Fortaleza, CE)",
-        placeholder="Fortaleza, Ceará"
+with col_busca_input:
+    busca_termo = st.text_input(
+        "Buscar por: Nome do Site (ex: CEIAU010) | Coordenadas (ex: -6.45 -39.38) | Local (ex: Sobral, CE)",
+        placeholder="Digite um site, coordenadas ou localização...",
+        key="busca_unificada"
     )
 
-with col_busca2:
-    busca_button = st.button("🔎 Buscar Localização", use_container_width=True)
+with col_busca_btn:
+    busca_button = st.button("🔎 Buscar", use_container_width=True, key="btn_busca")
 
-if busca_button and busca_localizacao:
-    with st.spinner("🔄 Buscando localização..."):
-        lat, lng = obter_coordenadas(busca_localizacao)
-        if lat and lng:
+if busca_button and busca_termo:
+    with st.spinner("🔄 Buscando..."):
+        lat, lng, mensagem = busca_inteligente(busca_termo)
+        
+        if lat is not None and lng is not None:
             centro_mapa = [lat, lng]
             marker_busca = (lat, lng)
             zoom_level = 10
-            st.success(f"✅ Localização encontrada: {lat:.4f}, {lng:.4f}")
+            msg_busca = mensagem
+            st.success(f"✅ {mensagem}")
         else:
-            st.error("❌ Localização não encontrada. Tente novamente.")
+            st.error(f"❌ Nenhum resultado encontrado para '{busca_termo}'. Tente outro termo.")
 
 # =========================
 # ABAS LATERAIS
@@ -206,7 +301,7 @@ with tab_filtros:
 
     # Busca global
     st.markdown("---")
-    busca_global = st.text_input("🔎 Busca Global", placeholder="Torre, cidade, etc")
+    busca_global = st.text_input("🔎 Busca Global", placeholder="Torre, cidade, etc", key="busca_global_sidebar")
 
     if busca_global:
         df_filtrado = df_filtrado[df_filtrado.apply(
@@ -269,7 +364,7 @@ cluster = MarkerCluster().add_to(mapa)
 if marker_busca:
     folium.Marker(
         location=marker_busca,
-        popup="📍 Localização Buscada",
+        popup=f"📍 {msg_busca}",
         icon=folium.Icon(color='blue', icon='search', prefix='fa')
     ).add_to(mapa)
 
