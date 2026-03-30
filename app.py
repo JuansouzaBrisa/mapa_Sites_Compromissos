@@ -240,20 +240,12 @@ if busca_button and busca_termo:
         lat, lng, mensagem = busca_inteligente(busca_termo)
         
         if lat is not None and lng is not None:
-<<<<<<< HEAD
             st.session_state.map_lat = lat
             st.session_state.map_lon = lng
             st.session_state.map_zoom = 12
 
             marker_busca = (lat, lng)
             msg_busca = mensagem
-=======
-            st.session_state.centro_mapa = [lat, lng]
-            st.session_state.marker_busca = (lat, lng)
-            st.session_state.zoom_level = 10
-            st.session_state.msg_busca = mensagem
-            st.session_state.termo_busca_anterior = busca_termo
->>>>>>> 8a28f2730ff5047ea7df76af2c98e93464e8c2a4
             st.success(f"✅ {mensagem}")
         else:
             st.error(f"❌ Nenhum resultado encontrado para '{busca_termo}'. Tente outro termo.")
@@ -295,12 +287,12 @@ with tab_filtros:
         st.session_state.map_zoom = 13
 
     if st.button("🔄 Resetar mapa"):
-    st.session_state.map_lat = -5.7945
-    st.session_state.map_lon = -38.4526
-    st.session_state.map_zoom = 10
+        st.session_state.map_lat = -5.7945
+        st.session_state.map_lon = -38.4526
+        st.session_state.map_zoom = 10
 
 
-    st.subheader("Filtros Avançados")
+        st.subheader("Filtros Avançados")
     
     df_filtrado = df.copy()
 
@@ -409,38 +401,28 @@ with tab_sem_coord:
         st.success("✅ Todos os sites possuem coordenadas!")
 
 # =========================
-# 📍 CENTRO DO MAPA
+# 📍 CENTRO DO MAPA (CORRIGIDO)
 # =========================
-<<<<<<< HEAD
-# Se não houve busca manual, usa média como fallback
-if not marker_busca and col_lat and col_lng:
+
+if col_lat and col_lng:
+
     coords_validas = df_filtrado[[col_lat, col_lng]].dropna()
 
     if not coords_validas.empty:
-        st.session_state.map_lat = coords_validas[col_lat].mean()
-        st.session_state.map_lon = coords_validas[col_lng].mean()
-=======
-if not st.session_state.marker_busca and col_lat and col_lng:
-    coords_validas = df_filtrado[[col_lat, col_lng]].dropna()
 
-    if not coords_validas.empty:
-        st.session_state.centro_mapa = [
-            coords_validas[col_lat].mean(),
-            coords_validas[col_lng].mean()
-        ]
->>>>>>> 8a28f2730ff5047ea7df76af2c98e93464e8c2a4
+        # Só atualiza automaticamente se NÃO houve busca manual
+        if "busca_manual" not in st.session_state:
+            st.session_state.busca_manual = False
 
+        if not st.session_state.busca_manual:
+            st.session_state.map_lat = float(coords_validas[col_lat].mean())
+            st.session_state.map_lon = float(coords_validas[col_lng].mean())
 # =========================
 # 🗺️ CRIAR MAPA
 # =========================
 mapa = folium.Map(
-<<<<<<< HEAD
     location=[st.session_state.map_lat, st.session_state.map_lon],
     zoom_start=st.session_state.map_zoom
-=======
-    location=st.session_state.centro_mapa,
-    zoom_start=st.session_state.zoom_level
->>>>>>> 8a28f2730ff5047ea7df76af2c98e93464e8c2a4
 )
 cluster = MarkerCluster().add_to(mapa)
 
