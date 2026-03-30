@@ -47,6 +47,7 @@ col_regiao = encontrar_coluna(["REGIÃO", "REGION"])
 col_estado = encontrar_coluna(["ESTADO", "STATE"])
 col_modelo = encontrar_coluna(["MODELO", "MODEL"])
 col_cidade = encontrar_coluna(["CIDADE", "CITY"])
+col_vendor = encontrar_coluna(["VENDOR"])
 
 # =========================
 # TRATAR COORDENADAS
@@ -103,6 +104,10 @@ st.subheader("🔍 Busca por Geolocalização")
 
 col_busca1, col_busca2 = st.columns([3, 1])
 
+centro_mapa = [-5.0, -39.0]  # Centro padrão (Brasil)
+marker_busca = None
+zoom_level = 6
+
 with col_busca1:
     busca_localizacao = st.text_input(
         "Digite um local para centralizar o mapa (ex: Fortaleza, CE)",
@@ -112,105 +117,135 @@ with col_busca1:
 with col_busca2:
     busca_button = st.button("🔎 Buscar Localização", use_container_width=True)
 
-centro_mapa = [-5.0, -39.0]  # Centro padrão (Brasil)
-marker_busca = None
-
 if busca_button and busca_localizacao:
     with st.spinner("🔄 Buscando localização..."):
         lat, lng = obter_coordenadas(busca_localizacao)
         if lat and lng:
             centro_mapa = [lat, lng]
             marker_busca = (lat, lng)
+            zoom_level = 10
             st.success(f"✅ Localização encontrada: {lat:.4f}, {lng:.4f}")
         else:
             st.error("❌ Localização não encontrada. Tente novamente.")
 
 # =========================
-# 🎛️ FILTROS ORGANIZADOS
+# ABAS LATERAIS
 # =========================
-st.sidebar.title("🎛️ Filtros Avançados")
+st.sidebar.title("🎛️ Painel de Controle")
 
-df_filtrado = df.copy()
+tab_filtros, tab_sem_coord = st.sidebar.tabs(["🔧 Filtros", "⚠️ Sem Coordenadas"])
 
-# Filtros em cascata
-filtro_regiao = None
-filtro_estado = None
-filtro_modelo = None
-filtro_cidade = None
+# =========================
+# ABA 1: FILTROS
+# =========================
+with tab_filtros:
+    st.subheader("Filtros Avançados")
+    
+    df_filtrado = df.copy()
 
-if col_regiao:
-    regioes = sorted(df[col_regiao].dropna().unique())
-    filtro_regiao = st.sidebar.multiselect(
-        "📍 Região",
-        regioes,
-        default=regioes,
-        key="filtro_regiao"
-    )
-    if filtro_regiao:
-        df_filtrado = df_filtrado[df_filtrado[col_regiao].isin(filtro_regiao)]
+    # Filtros em cascata
+    if col_regiao:
+        regioes = sorted(df[col_regiao].dropna().unique())
+        filtro_regiao = st.multiselect(
+            "📍 Região",
+            regioes,
+            default=regioes,
+            key="filtro_regiao"
+        )
+        if filtro_regiao:
+            df_filtrado = df_filtrado[df_filtrado[col_regiao].isin(filtro_regiao)]
 
-if col_estado:
-    estados_disponiveis = sorted(df_filtrado[col_estado].dropna().unique())
-    filtro_estado = st.sidebar.multiselect(
-        "🏛️ Estado",
-        estados_disponiveis,
-        default=estados_disponiveis,
-        key="filtro_estado"
-    )
-    if filtro_estado:
-        df_filtrado = df_filtrado[df_filtrado[col_estado].isin(filtro_estado)]
+    if col_estado:
+        estados_disponiveis = sorted(df_filtrado[col_estado].dropna().unique())
+        filtro_estado = st.multiselect(
+            "🏛️ Estado",
+            estados_disponiveis,
+            default=estados_disponiveis,
+            key="filtro_estado"
+        )
+        if filtro_estado:
+            df_filtrado = df_filtrado[df_filtrado[col_estado].isin(filtro_estado)]
 
-if col_cidade:
-    cidades_disponiveis = sorted(df_filtrado[col_cidade].dropna().unique())
-    filtro_cidade = st.sidebar.multiselect(
-        "🏙️ Cidade",
-        cidades_disponiveis,
-        default=cidades_disponiveis,
-        key="filtro_cidade"
-    )
-    if filtro_cidade:
-        df_filtrado = df_filtrado[df_filtrado[col_cidade].isin(filtro_cidade)]
+    if col_cidade:
+        cidades_disponiveis = sorted(df_filtrado[col_cidade].dropna().unique())
+        filtro_cidade = st.multiselect(
+            "🏙️ Cidade",
+            cidades_disponiveis,
+            default=cidades_disponiveis,
+            key="filtro_cidade"
+        )
+        if filtro_cidade:
+            df_filtrado = df_filtrado[df_filtrado[col_cidade].isin(filtro_cidade)]
 
-if col_modelo:
-    modelos = sorted(df_filtrado[col_modelo].dropna().unique())
-    filtro_modelo = st.sidebar.multiselect(
-        "📶 Modelo",
-        modelos,
-        default=modelos,
-        key="filtro_modelo"
-    )
-    if filtro_modelo:
-        df_filtrado = df_filtrado[df_filtrado[col_modelo].isin(filtro_modelo)]
+    if col_modelo:
+        modelos = sorted(df_filtrado[col_modelo].dropna().unique())
+        filtro_modelo = st.multiselect(
+            "📶 Modelo",
+            modelos,
+            default=modelos,
+            key="filtro_modelo"
+        )
+        if filtro_modelo:
+            df_filtrado = df_filtrado[df_filtrado[col_modelo].isin(filtro_modelo)]
 
-# Filtros adicionais dinâmicos
-st.sidebar.markdown("---")
-st.sidebar.subheader("🔧 Filtros Adicionais")
+    # Filtros adicionais dinâmicos
+    st.markdown("---")
+    
+    for col in df.columns:
+        if col not in [col_regiao, col_estado, col_modelo, col_cidade, col_lat, col_lng, col_nome, col_vendor]:
+            if df[col].dtype == 'object' and 5 < df_filtrado[col].nunique() < 50:
+                valores = sorted(df_filtrado[col].dropna().unique())
+                selecionados = st.multiselect(
+                    col,
+                    valores,
+                    default=valores,
+                    key=f"filtro_{col}"
+                )
+                if selecionados:
+                    df_filtrado = df_filtrado[df_filtrado[col].isin(selecionados)]
 
-for col in df.columns:
-    if col not in [col_regiao, col_estado, col_modelo, col_cidade, col_lat, col_lng, col_nome]:
-        if df[col].dtype == 'object' and 5 < df_filtrado[col].nunique() < 50:
-            valores = sorted(df_filtrado[col].dropna().unique())
-            selecionados = st.sidebar.multiselect(
-                col,
-                valores,
-                default=valores,
-                key=f"filtro_{col}"
+    # Busca global
+    st.markdown("---")
+    busca_global = st.text_input("🔎 Busca Global", placeholder="Torre, cidade, etc")
+
+    if busca_global:
+        df_filtrado = df_filtrado[df_filtrado.apply(
+            lambda row: row.astype(str).str.contains(busca_global, case=False).any(),
+            axis=1
+        )]
+
+# =========================
+# ABA 2: SITES SEM COORDENADAS
+# =========================
+with tab_sem_coord:
+    st.subheader("⚠️ Sites Sem Coordenadas")
+    
+    # Identificar sites sem coordenadas
+    df_sem_coord = df[(df[col_lat].isna()) | (df[col_lng].isna())].copy()
+    
+    if len(df_sem_coord) > 0:
+        st.warning(f"**{len(df_sem_coord)} sites sem coordenadas precisam ser preenchidos**")
+        
+        # Mostrar informações essenciais
+        cols_essenciais = [col_nome, col_regiao, col_estado, col_cidade, col_modelo, col_vendor]
+        cols_essenciais = [c for c in cols_essenciais if c is not None]
+        
+        if cols_essenciais:
+            df_sem_coord_display = df_sem_coord[cols_essenciais].drop_duplicates()
+            st.dataframe(df_sem_coord_display, use_container_width=True)
+            
+            # Botão para exportar
+            csv = df_sem_coord_display.to_csv(index=False, encoding='utf-8')
+            st.download_button(
+                label="📥 Baixar Lista (CSV)",
+                data=csv,
+                file_name="sites_sem_coordenadas.csv",
+                mime="text/csv"
             )
-            if selecionados:
-                df_filtrado = df_filtrado[df_filtrado[col].isin(selecionados)]
-
-# =========================
-# 🔎 BUSCA GLOBAL
-# =========================
-busca = st.text_input("🔎 Buscar (Sites, Cidade, Geolocalização)")
-st.sidebar.markdown("---")
-busca_global = st.sidebar.text_input("🔎 Busca Global", placeholder="Torre, cidade, etc")
-
-if busca_global:
-    df_filtrado = df_filtrado[df_filtrado.apply(
-        lambda row: row.astype(str).str.contains(busca_global, case=False).any(),
-        axis=1
-    )]
+        else:
+            st.dataframe(df_sem_coord, use_container_width=True)
+    else:
+        st.success("✅ Todos os sites possuem coordenadas!")
 
 # =========================
 # 📍 CENTRO DO MAPA
@@ -227,7 +262,7 @@ if not marker_busca and col_lat and col_lng:
 # =========================
 # 🗺️ CRIAR MAPA
 # =========================
-mapa = folium.Map(location=centro_mapa, zoom_start=6)
+mapa = folium.Map(location=centro_mapa, zoom_start=zoom_level)
 cluster = MarkerCluster().add_to(mapa)
 
 # Adicionar marcador de busca se houver
@@ -235,7 +270,7 @@ if marker_busca:
     folium.Marker(
         location=marker_busca,
         popup="📍 Localização Buscada",
-        icon=folium.Icon(color='blue', icon='search')
+        icon=folium.Icon(color='blue', icon='search', prefix='fa')
     ).add_to(mapa)
 
 # =========================
@@ -256,39 +291,33 @@ for i, row in df_filtrado.iterrows():
 
     if pd.notna(lat) and pd.notna(lng):
 
-        # Montar popup com informações formatadas
+        # Montar popup SIMPLIFICADO
         popup_html = f"""
-        <div style="font-family: Arial; width: 300px;">
-            <h4 style="margin: 0 0 10px 0; color: #1f77b4;">{nome}</h4>
+        <div style="font-family: Arial; width: 280px; font-size: 12px;">
+            <h4 style="margin: 0 0 8px 0; color: #1f77b4; font-size: 14px;">{nome}</h4>
             <hr style="margin: 5px 0;">
         """
 
-        # Adicionar informações principais
+        # Adicionar apenas informações principais
         if col_regiao and pd.notna(row[col_regiao]):
-            popup_html += f"<b>📍 Região:</b> {row[col_regiao]}<br>"
+            popup_html += f"<b>Região:</b> {row[col_regiao]}<br>"
         if col_estado and pd.notna(row[col_estado]):
-            popup_html += f"<b>🏛️ Estado:</b> {row[col_estado]}<br>"
+            popup_html += f"<b>Estado:</b> {row[col_estado]}<br>"
         if col_cidade and pd.notna(row[col_cidade]):
-            popup_html += f"<b>🏙️ Cidade:</b> {row[col_cidade]}<br>"
+            popup_html += f"<b>Cidade:</b> {row[col_cidade]}<br>"
         if col_modelo and pd.notna(row[col_modelo]):
-            popup_html += f"<b>📶 Modelo:</b> {row[col_modelo]}<br>"
+            popup_html += f"<b>Modelo:</b> {row[col_modelo]}<br>"
+        if col_vendor and pd.notna(row[col_vendor]):
+            popup_html += f"<b>Vendor:</b> {row[col_vendor]}<br>"
 
-        popup_html += f"<b>📌 Latitude:</b> {lat:.6f}<br>"
-        popup_html += f"<b>📌 Longitude:</b> {lng:.6f}<br>"
-
-        # Adicionar outras colunas
-        popup_html += "<hr style='margin: 5px 0;'>"
-        for col in df.columns:
-            if col not in [col_nome, col_lat, col_lng, col_regiao, col_estado, col_cidade, col_modelo]:
-                valor = row[col]
-                if pd.notna(valor):
-                    popup_html += f"<small><b>{col}:</b> {valor}</small><br>"
+        popup_html += f"<b>Lat:</b> {lat:.6f}<br>"
+        popup_html += f"<b>Lng:</b> {lng:.6f}<br>"
 
         popup_html += "</div>"
 
         folium.Marker(
             location=[lat, lng],
-            popup=folium.Popup(popup_html, max_width=350),
+            popup=folium.Popup(popup_html, max_width=300),
             tooltip=nome
         ).add_to(cluster)
 
@@ -320,27 +349,27 @@ st.subheader("💾 Exportar Dados")
 col_export1, col_export2 = st.columns(2)
 
 with col_export1:
-    if st.button("📥 Baixar como CSV", use_container_width=True):
-        csv = df_filtrado.to_csv(index=False, encoding='utf-8')
-        st.download_button(
-            label="⬇️ Clique para baixar CSV",
-            data=csv,
-            file_name="torres_filtradas.csv",
-            mime="text/csv"
-        )
+    csv = df_filtrado.to_csv(index=False, encoding='utf-8')
+    st.download_button(
+        label="📥 Baixar como CSV",
+        data=csv,
+        file_name="torres_filtradas.csv",
+        mime="text/csv",
+        use_container_width=True
+    )
 
 with col_export2:
-    if st.button("📥 Baixar como Excel", use_container_width=True):
-        buffer = io.BytesIO()
-        with pd.ExcelWriter(buffer, engine='openpyxl') as writer:
-            df_filtrado.to_excel(writer, index=False, sheet_name='Torres')
-        buffer.seek(0)
-        st.download_button(
-            label="⬇️ Clique para baixar Excel",
-            data=buffer,
-            file_name="torres_filtradas.xlsx",
-            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-        )
+    buffer = io.BytesIO()
+    with pd.ExcelWriter(buffer, engine='openpyxl') as writer:
+        df_filtrado.to_excel(writer, index=False, sheet_name='Torres')
+    buffer.seek(0)
+    st.download_button(
+        label="📥 Baixar como Excel",
+        data=buffer,
+        file_name="torres_filtradas.xlsx",
+        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        use_container_width=True
+    )
 
 # =========================
 # 🔔 PREPARAÇÃO PARA ZABBIX
@@ -352,20 +381,8 @@ st.info("""
 **Status Atual:** Sistema preparado para integração com Zabbix.
 
 **Funcionalidades Futuras:**
-- ✅ Conexão com API do Zabbix para monitoramento de status
-- ✅ Indicadores visuais (Verde = Online, Vermelho = Offline)
-- ✅ Histórico de alertas e downtime
-- ✅ Notificações em tempo real
-
-**Como Configurar:**
-1. Adicione uma coluna `STATUS` na planilha com valores: Online/Offline
-2. Configure as credenciais do Zabbix no arquivo `.env`
-3. Implemente a função `obter_status_zabbix()` para sincronizar dados
+- Conexão com API do Zabbix para monitoramento de status
+- Indicadores visuais (Verde = Online, Vermelho = Offline)
+- Histórico de alertas e downtime
+- Notificações em tempo real
 """)
-
-# Placeholder para status Zabbix
-if 'STATUS' in df.columns or 'STATUS_ZABBIX' in df.columns:
-    col_status = 'STATUS' if 'STATUS' in df.columns else 'STATUS_ZABBIX'
-    status_counts = df_filtrado[col_status].value_counts()
-    st.write("**Status das Torres Filtradas:**")
-    st.bar_chart(status_counts)
