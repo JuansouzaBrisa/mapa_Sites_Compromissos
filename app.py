@@ -93,7 +93,7 @@ col3.metric("Sem Coordenadas", sem_coord)
 # =========================
 # 🔎 BUSCA GLOBAL
 # =========================
-busca = st.text_input("🔎 Buscar (torre, cidade, etc)")
+busca = st.text_input("🔎 Buscar (Sites, Cidade, Geolocalização)")
 
 df_filtrado = df.copy()
 
