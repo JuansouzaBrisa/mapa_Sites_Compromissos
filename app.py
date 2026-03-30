@@ -27,6 +27,20 @@ if "map_zoom" not in st.session_state:
     st.session_state.map_zoom = 10
 
 # =========================
+# INICIALIZAR SESSION STATE
+# =========================
+if 'centro_mapa' not in st.session_state:
+    st.session_state.centro_mapa = [-5.0, -39.0]
+if 'zoom_level' not in st.session_state:
+    st.session_state.zoom_level = 6
+if 'marker_busca' not in st.session_state:
+    st.session_state.marker_busca = None
+if 'msg_busca' not in st.session_state:
+    st.session_state.msg_busca = ""
+if 'termo_busca_anterior' not in st.session_state:
+    st.session_state.termo_busca_anterior = ""
+
+# =========================
 # CARREGAR DADOS
 # =========================
 @st.cache_data(ttl=300)
@@ -205,16 +219,11 @@ col3.metric("❌ Sem Coordenadas", sem_coord)
 # =========================
 st.subheader("🔍 Busca Inteligente Unificada")
 
-col_busca_input, col_busca_btn = st.columns([4, 1])
-
-centro_mapa = [-5.0, -39.0]  # Centro padrão (Brasil)
-marker_busca = None
-zoom_level = 6
-msg_busca = ""
+col_busca_input, col_busca_btn, col_limpar = st.columns([3, 1, 1])
 
 with col_busca_input:
     busca_termo = st.text_input(
-        "Buscar por: Nome do Site (ex: CEIAU010) | Coordenadas (ex: -6.45 -39.38) | Local (ex: Sobral, CE)",
+        "Buscar por: Nome do Site (ex: CEIAU010) | Coordenadas (ex: -6.45 -39.38) | Local (ex: Sobral)",
         placeholder="Digite um site, coordenadas ou localização...",
         key="busca_unificada"
     )
@@ -222,20 +231,41 @@ with col_busca_input:
 with col_busca_btn:
     busca_button = st.button("🔎 Buscar", use_container_width=True, key="btn_busca")
 
+with col_limpar:
+    limpar_button = st.button("🔄 Limpar", use_container_width=True, key="btn_limpar")
+
+# Processar busca
 if busca_button and busca_termo:
     with st.spinner("🔄 Buscando..."):
         lat, lng, mensagem = busca_inteligente(busca_termo)
         
         if lat is not None and lng is not None:
+<<<<<<< HEAD
             st.session_state.map_lat = lat
             st.session_state.map_lon = lng
             st.session_state.map_zoom = 12
 
             marker_busca = (lat, lng)
             msg_busca = mensagem
+=======
+            st.session_state.centro_mapa = [lat, lng]
+            st.session_state.marker_busca = (lat, lng)
+            st.session_state.zoom_level = 10
+            st.session_state.msg_busca = mensagem
+            st.session_state.termo_busca_anterior = busca_termo
+>>>>>>> 8a28f2730ff5047ea7df76af2c98e93464e8c2a4
             st.success(f"✅ {mensagem}")
         else:
             st.error(f"❌ Nenhum resultado encontrado para '{busca_termo}'. Tente outro termo.")
+
+# Limpar busca
+if limpar_button:
+    st.session_state.centro_mapa = [-5.0, -39.0]
+    st.session_state.zoom_level = 6
+    st.session_state.marker_busca = None
+    st.session_state.msg_busca = ""
+    st.session_state.termo_busca_anterior = ""
+    st.info("🔄 Mapa resetado para a visualização padrão.")
 
 # =========================
 # ABAS LATERAIS
@@ -381,6 +411,7 @@ with tab_sem_coord:
 # =========================
 # 📍 CENTRO DO MAPA
 # =========================
+<<<<<<< HEAD
 # Se não houve busca manual, usa média como fallback
 if not marker_busca and col_lat and col_lng:
     coords_validas = df_filtrado[[col_lat, col_lng]].dropna()
@@ -388,21 +419,36 @@ if not marker_busca and col_lat and col_lng:
     if not coords_validas.empty:
         st.session_state.map_lat = coords_validas[col_lat].mean()
         st.session_state.map_lon = coords_validas[col_lng].mean()
+=======
+if not st.session_state.marker_busca and col_lat and col_lng:
+    coords_validas = df_filtrado[[col_lat, col_lng]].dropna()
+
+    if not coords_validas.empty:
+        st.session_state.centro_mapa = [
+            coords_validas[col_lat].mean(),
+            coords_validas[col_lng].mean()
+        ]
+>>>>>>> 8a28f2730ff5047ea7df76af2c98e93464e8c2a4
 
 # =========================
 # 🗺️ CRIAR MAPA
 # =========================
 mapa = folium.Map(
+<<<<<<< HEAD
     location=[st.session_state.map_lat, st.session_state.map_lon],
     zoom_start=st.session_state.map_zoom
+=======
+    location=st.session_state.centro_mapa,
+    zoom_start=st.session_state.zoom_level
+>>>>>>> 8a28f2730ff5047ea7df76af2c98e93464e8c2a4
 )
 cluster = MarkerCluster().add_to(mapa)
 
 # Adicionar marcador de busca se houver
-if marker_busca:
+if st.session_state.marker_busca:
     folium.Marker(
-        location=marker_busca,
-        popup=f"📍 {msg_busca}",
+        location=st.session_state.marker_busca,
+        popup=f"📍 {st.session_state.msg_busca}",
         icon=folium.Icon(color='blue', icon='search', prefix='fa')
     ).add_to(mapa)
 
