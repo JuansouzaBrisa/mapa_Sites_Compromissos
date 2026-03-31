@@ -1,12 +1,21 @@
+import streamlit as st
+
+# TEM QUE SER A PRIMEIRA COISA DO STREAMLIT
+st.set_page_config(
+    layout="wide",
+    page_title="Mapa de Sites Compromisso - Monitoramento"
+)
+
+# AGORA SIM o resto
 import pkg_resources
 
 try:
     pkg_resources.get_distribution("folium")
 except:
     pass
+
 import pandas as pd
 import folium
-import streamlit as st
 from streamlit_folium import st_folium
 from folium.plugins import MarkerCluster
 from geopy.geocoders import Nominatim
@@ -98,7 +107,7 @@ geocode = RateLimiter(geolocator.geocode, min_delay_seconds=1)
 
 def obter_coordenadas(endereco):
     try:
-        location = geolocator.geocode(endereco, timeout=5)
+        location = geolocator.geocode(endereco, timeout=30)
         if location:
             return location.latitude, location.longitude
     except Exception as e:
