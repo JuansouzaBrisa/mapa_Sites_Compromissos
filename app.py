@@ -27,8 +27,6 @@ import io
 # =========================
 URL = "https://docs.google.com/spreadsheets/d/1Oy2N6iGrDHnGSimR6AoNiHtCKUQaqKbQHqMwKM9pX9o/export?format=csv&gid=0"
 
-st.set_page_config(layout="wide", page_title="Mapa de Sites Compromisso - Monitoramento")
-
 # ============================
 #  ESTADO DO MAPA (NÃO RESETAR)
 # ============================
