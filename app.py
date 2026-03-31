@@ -6,13 +6,6 @@ st.set_page_config(
     page_title="Mapa de Sites Compromisso - Monitoramento"
 )
 
-# AGORA SIM o resto
-import pkg_resources
-
-try:
-    pkg_resources.get_distribution("folium")
-except:
-    pass
 
 import pandas as pd
 import folium
